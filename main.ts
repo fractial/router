@@ -1,17 +1,37 @@
-import { handler, route } from "./mod.ts";
+import { Router } from "./router/mod.ts";
 
-route("/", (_) => {
-  return new Response("Ich mag Bäume", {status: 200})
-})
+class AsyncResponse extends Response {
+  constructor(delay: number = 1000, body: string = "") {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        setTimeout(() => {
+          controller.enqueue(new TextEncoder().encode(body));
+          controller.close();
+        }, delay);
+      }
+    });
 
-route("/<id>/<id2>", (_req) => {
-  return new Response(_req.pathParams.get("id2"))
-})
-
-route("/home", (_req) => {
-  return new Response(_req.method)
-})
-
-if (import.meta.main) {
-  Deno.serve({port: 2000}, handler);
+    super(stream);
+  }
 }
+
+const router = new Router();
+
+router.add("/", (_request) => {
+  return new AsyncResponse(10000, "Waited for 10s")
+})
+
+router.add("/home", (_request) => {
+  return new Response("Home")
+})
+
+router.add("/:home", (request) => {
+  return new Response(request.pathParams.get("home"))
+})
+
+router.add("/:home/:id", (request) => {
+  return new Response(request.pathParams.get("id"))
+})
+
+
+Deno.serve(router)
